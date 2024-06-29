@@ -52,6 +52,7 @@
 #include <boost/geometry/algorithms/num_points.hpp>
 
 #include "aerial_map_display.h"
+#include "map_helpers/xyconvert.h"
 
 namespace rviz
 {
@@ -109,10 +110,10 @@ AerialImageDisplay::AerialImageDisplay() : dirty_(false)
   zoom_property_->setMin(0);
   zoom_property_->setMax(22);
 
-  QString const blocks_desc = QString::fromStdString("Adjacent blocks (0 - " + std::to_string(10) + ")");
+  QString const blocks_desc = QString::fromStdString("Adjacent blocks (0 - " + std::to_string(100) + ")");
   blocks_property_ = new IntProperty("Blocks", 3, blocks_desc, this, SLOT(propertyChanged()));
   blocks_property_->setMin(0);
-  blocks_property_->setMax(10);
+  blocks_property_->setMax(100);
 
   // tiff speciffic properties
   tile_uri_property_ =
@@ -293,6 +294,18 @@ void AerialImageDisplay::loadImagery()
   tas::proj::GpsCoord gps;
   gps.lat = last_msg_->latitude;
   gps.lon = last_msg_->longitude;
+
+  XYConvert converter;
+  if (!converter.out_of_china(gps.lon, gps.lat)) {
+    std::vector<std::pair<double, double>> gcj_coords = {
+        {last_msg_->longitude, last_msg_->latitude}};
+    std::vector<std::pair<double, double>> wgs_coords =
+        converter.gcj2wgs(gcj_coords);
+    std::cout << "gcj2wgs: " << gps.lat << "," << gps.lon << "->"
+              << wgs_coords[0].second << "," << wgs_coords[0].first << std::endl;
+    gps.lat = wgs_coords[0].second;
+    gps.lon = wgs_coords[0].first;
+  }
 
   if (map_type_ == MAP_TYPE_OSM)
   {
@@ -486,6 +499,19 @@ bool AerialImageDisplay::getAxisAlignedPoseInUtmFrame(geometry_msgs::Pose& out)
   gps.lat = last_msg_->latitude;
   gps.lon = last_msg_->longitude;
   gps.altitude = last_msg_->altitude;
+
+  XYConvert converter;
+  if (!converter.out_of_china(gps.lon, gps.lat)) {
+    std::vector<std::pair<double, double>> gcj_coords = {
+        {last_msg_->longitude, last_msg_->latitude}};
+    std::vector<std::pair<double, double>> wgs_coords =
+        converter.gcj2wgs(gcj_coords);
+    std::cout << "gcj2wgs: " << gps.lat << "," << gps.lon << "->"
+              << wgs_coords[0].second << "," << wgs_coords[0].first << std::endl;
+    gps.lat = wgs_coords[0].second;
+    gps.lon = wgs_coords[0].first;
+  }
+
   tas::proj::UtmCoord cur_utm_;
   gps_utm_converter_.gpsToUtm(gps, cur_utm_);
 
